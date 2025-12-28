@@ -103,7 +103,7 @@ function LoginMessage(oauth: boolean) {
 }
 
 function UnsuspendedPage() {
-  const [oauth, setOauth] = useState(true)
+  const [oauth, setOauth] = useState(false)
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((state) => state.tokens.access_token)
   const isLoggedIn = useAppSelector((state) => loggedIn(state))
@@ -209,7 +209,7 @@ function UnsuspendedPage() {
 
           <div className="mt-8 flex items-center justify-between">
             <p className="text-sm text-rose-500 align-middle">
-              {oauth ? "Using password login" : "Switch to password login"}
+              If you prefer, use your password & don&apos;t email.
             </p>
             <Switch
               checked={oauth}

@@ -4,8 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useAppDispatch } from "../lib/hooks"
 import { useForm } from "react-hook-form"
 import { resetPassword } from "../lib/slices/authSlice"
-import { Suspense, useEffect } from "react"
+import { Suspense, useEffect, useState } from "react"
 import Image from "next/image"
+import { handleApiError } from "../lib/api/errorHandler"
 
 const schema = {
   password: { required: true, minLength: 8, maxLength: 64 },
@@ -37,6 +38,7 @@ const renderError = (type: LiteralUnion<keyof RegisterOptions, string>) => {
 
 function UnsuspendedResetPassword() {
   const dispatch = useAppDispatch()
+  const [loading, setLoading] = useState(false);
 
   const router = useRouter();
   const query = useSearchParams();
@@ -49,16 +51,22 @@ function UnsuspendedResetPassword() {
   } = useForm();
 
   async function submit(values: any) {
-    await dispatch(
-      resetPassword(values.password, query.get("token") as string),
-    );
-    await new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(true);
-      }, 2000);
-    });
+    const token = query?.get("token");
+    if (!token) {
+      handleApiError({ code: 400, message: "Invalid reset token" });
+      return;
+    }
 
-    router.push(redirectRoute);
+    setLoading(true);
+    try {
+      await dispatch(resetPassword(values.password, token));
+      // Success - redirect to login
+      router.push(redirectRoute);
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -135,9 +143,10 @@ function UnsuspendedResetPassword() {
                 <div>
                   <button
                     type="submit"
-                    className="flex w-full justify-center rounded-md border border-transparent bg-rose-500 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2"
+                    disabled={loading}
+                    className="flex w-full justify-center rounded-md border border-transparent bg-rose-500 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Submit
+                    {loading ? "Đang đặt lại..." : "Đặt lại mật khẩu"}
                   </button>
                 </div>
               </form>

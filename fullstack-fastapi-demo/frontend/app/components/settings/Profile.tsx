@@ -3,9 +3,10 @@
 import { IUserProfileUpdate } from "../../lib/interfaces";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
 import { useForm } from "react-hook-form";
-import { profile, updateUserProfile } from "../../lib/slices/authSlice";
+import { profile, updateUserProfile, sendEmailValidation } from "../../lib/slices/authSlice";
 import { useEffect, useState } from "react";
 import { RootState } from "../../lib/store";
+import { token } from "../../lib/slices/tokensSlice";
 
 const title = "Personal settings";
 const description =
@@ -35,6 +36,7 @@ export default function Profile() {
 
   const dispatch = useAppDispatch();
   const currentProfile = useAppSelector((state: RootState) => profile(state));
+  const accessToken = useAppSelector((state: RootState) => token(state));
 
   const {
     register,
@@ -132,12 +134,24 @@ export default function Profile() {
           </div>
 
           <div className="space-y-1">
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Email address
-            </label>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Email address
+              </label>
+              {!currentProfile.email_validated && (
+                <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
+                  Chưa xác thực
+                </span>
+              )}
+              {currentProfile.email_validated && (
+                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                  Đã xác thực
+                </span>
+              )}
+            </div>
             <div className="mt-1 group relative inline-block w-full">
               <input
                 {...register("email", schema.email)}
@@ -151,6 +165,21 @@ export default function Profile() {
               />
               {errors.email && renderError(errors.email.type)}
             </div>
+            {!currentProfile.email_validated && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (accessToken) {
+                      await dispatch(sendEmailValidation());
+                    }
+                  }}
+                  className="text-sm text-rose-500 hover:text-rose-600 font-medium"
+                >
+                  Gửi lại email xác thực
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div className="py-3 pb-6 text-right sm:px-6">

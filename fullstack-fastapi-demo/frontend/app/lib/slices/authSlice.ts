@@ -24,6 +24,7 @@ import {
   validateTOTPClaim,
 } from "./tokensSlice";
 import { PURGE } from "redux-persist";
+import { apiAuth } from "../api";
 
 interface AuthState {
   id: string;
@@ -139,10 +140,26 @@ export const magicLogin = (payload: { token: string }) =>
 export const totpLogin = (payload: { claim: string }) =>
   handleGenericLogin(validateTOTPClaim, payload.claim);
 
-export const logout = () => (dispatch: Dispatch) => {
+export const logout = () => async (dispatch: Dispatch, getState: () => RootState) => {
+  const state = getState();
+  const refreshToken = state.tokens.refresh_token;
+
+  // Gọi revoke API trước khi logout (nếu có refresh token)
+  if (refreshToken) {
+    try {
+      await apiAuth.revokeRefreshedToken(refreshToken);
+    } catch (error) {
+      // Ignore error - vẫn logout dù revoke fail
+      console.warn("Failed to revoke token:", error);
+    }
+  }
+
+  // Clear state
   dispatch(deleteAuth());
   dispatch(deleteTokens());
   dispatch(deleteNotices());
+  
+  // Purge persist store
   dispatch({
     type: PURGE,
     key: "root",

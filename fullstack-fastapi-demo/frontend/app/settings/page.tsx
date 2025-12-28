@@ -8,6 +8,7 @@ import {
 import ValidateEmailButton from "../components/settings/ValidateEmailButton";
 import Profile from "../components/settings/Profile";
 import Security from "../components/settings/Security";
+import ProtectedRoute from "../components/auth/ProtectedRoute";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppSelector } from "../lib/hooks";
@@ -53,15 +54,9 @@ export default function Settings() {
     ));
   };
 
-  useEffect(() => {
-    async function checkLoggedIn() {
-      if (!isLoggedIn) redirectTo("/");
-    }
-    checkLoggedIn();
-  }, [isLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
-    <main className="flex min-h-full mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+    <ProtectedRoute>
+      <main className="flex min-h-full mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
       <div className="p-5">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-5">
           <aside className="py-6 px-2 sm:px-6 lg:col-span-3 lg:py-0 lg:px-0">
@@ -89,5 +84,6 @@ export default function Settings() {
         </div>
       </div>
     </main>
+    </ProtectedRoute>
   );
 }

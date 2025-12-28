@@ -11,7 +11,9 @@ from app.core.config import settings
 from app.core import security
 from app.utilities import (
     send_new_account_email,
+    send_email_validation_email,
 )
+from app.schemas.emails import EmailValidation
 
 router = APIRouter()
 
@@ -148,6 +150,63 @@ async def create_user(
     if settings.EMAILS_ENABLED and user_in.email:
         send_new_account_email(email_to=user_in.email, username=user_in.email, password=user_in.password)
     return user
+
+
+@router.post("/send-validation-email", response_model=schemas.Msg)
+async def send_validation_email(
+    *,
+    db: AgnosticDatabase = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Send validation email to current user.
+    """
+    if current_user.email_validated:
+        raise HTTPException(status_code=400, detail="Email already validated.")
+    
+    # Generate validation token (using magic token approach)
+    validation_token = security.create_magic_tokens(subject=current_user.id)[0]
+    
+    if settings.EMAILS_ENABLED:
+        from app.schemas.emails import EmailValidation
+        from pydantic import SecretStr
+        email_data = EmailValidation(
+            email=current_user.email,
+            subject="Email validation",
+            token=SecretStr(validation_token),
+        )
+        send_email_validation_email(data=email_data)
+    
+    return {"msg": "If that email exists, we'll send you a validation email."}
+
+
+@router.post("/validate-email", response_model=schemas.Msg)
+async def validate_user_email(
+    *,
+    db: AgnosticDatabase = Depends(deps.get_db),
+    validation: str = Body(...),
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Validate email with token from email link.
+    Note: In a production system, you should verify the validation token
+    matches what was sent in the email. For now, we'll validate directly.
+    """
+    if current_user.email_validated:
+        raise HTTPException(status_code=400, detail="Email already validated.")
+    
+    # Verify token (simplified - in production should check token matches)
+    try:
+        # Try to parse token to verify it's valid
+        from app.api.deps import get_magic_token
+        token_data = get_magic_token(token=validation)
+        if token_data and str(token_data.sub) == str(current_user.id):
+            await crud.user.validate_email(db=db, db_obj=current_user)
+            return {"msg": "Email validated successfully."}
+        else:
+            raise HTTPException(status_code=400, detail="Invalid validation token.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid validation token.")
 
 
 @router.get("/tester", response_model=schemas.Msg)

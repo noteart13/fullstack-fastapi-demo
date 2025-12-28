@@ -6,11 +6,11 @@ import {
   UserPlusIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import UserTable from "../components/moderation/UserTable";
 import CreateUser from "../components/moderation/CreateUser";
-import { useAppSelector } from "../lib/hooks";
-import { isAdmin } from "../lib/slices/authSlice";
+import ProtectedRoute from "../components/auth/ProtectedRoute";
+import AdminOnly from "../components/auth/AdminOnly";
 
 const navigation = [
   { name: "Users", id: "USERS", icon: UsersIcon },
@@ -19,8 +19,6 @@ const navigation = [
 
 export default function Moderation() {
   const [selected, changeSelection] = useState("USERS");
-  const isValidAdmin = useAppSelector((state) => isAdmin(state));
-
   const router = useRouter();
 
   const redirectTo = (route: string) => {
@@ -53,15 +51,10 @@ export default function Moderation() {
     ));
   };
 
-  useEffect(() => {
-    async function checkAdmin() {
-      if (!isValidAdmin) redirectTo("/settings");
-    }
-    checkAdmin();
-  }, [isValidAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
-    <main className="flex min-h-full mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+    <ProtectedRoute>
+      <AdminOnly fallback={<div className="p-8 text-center">Bạn không có quyền truy cập trang này.</div>}>
+        <main className="flex min-h-full mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
       <div className="p-5">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-5">
           <aside className="py-6 px-2 sm:px-6 lg:col-span-3 lg:py-0 lg:px-0">
@@ -89,5 +82,7 @@ export default function Moderation() {
         </div>
       </div>
     </main>
+      </AdminOnly>
+    </ProtectedRoute>
   );
 }

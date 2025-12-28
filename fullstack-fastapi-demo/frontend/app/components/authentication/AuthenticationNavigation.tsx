@@ -59,8 +59,8 @@ export default function AuthenticationNavigation() {
   const isLoggedIn = useAppSelector((state: RootState) => loggedIn(state));
   const router = useRouter();
 
-  const logoutUser = () => {
-    dispatch(logout());
+  const logoutUser = async () => {
+    await dispatch(logout() as any);
     router.push(redirectRoute);
   };
 

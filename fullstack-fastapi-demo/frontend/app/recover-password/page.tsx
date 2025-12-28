@@ -5,8 +5,9 @@ import { useAppDispatch, useAppSelector } from "../lib/hooks";
 import { useForm } from "react-hook-form";
 import { loggedIn, recoverPassword } from "../lib/slices/authSlice";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { RootState } from "../lib/store";
+import { handleApiError } from "../lib/api/errorHandler";
 
 const redirectRoute = "/";
 const schema = {
@@ -16,6 +17,8 @@ const schema = {
 export default function RecoverPassword() {
   const dispatch = useAppDispatch();
   const isLoggedIn = useAppSelector((state: RootState) => loggedIn(state));
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const router = useRouter();
 
@@ -26,13 +29,15 @@ export default function RecoverPassword() {
   } = useForm();
 
   async function submit(values: any) {
-    await dispatch(recoverPassword(values.email));
-    await new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(true);
-      }, 2000);
-    });
-    router.push(redirectRoute);
+    setLoading(true);
+    try {
+      await dispatch(recoverPassword(values.email));
+      setSubmitted(true);
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -52,7 +57,13 @@ export default function RecoverPassword() {
             <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
               Recover your account
             </h2>
+            {submitted && (
+              <p className="mt-4 text-sm text-green-600">
+                Nếu email tồn tại, chúng tôi đã gửi link khôi phục mật khẩu đến email của bạn.
+              </p>
+            )}
           </div>
+          {!submitted && (
           <div className="mt-8">
             <div className="mt-6">
               <form
@@ -97,14 +108,16 @@ export default function RecoverPassword() {
                 <div>
                   <button
                     type="submit"
-                    className="flex w-full justify-center rounded-md border border-transparent bg-rose-500 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2"
+                    disabled={loading}
+                    className="flex w-full justify-center rounded-md border border-transparent bg-rose-500 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Submit
+                    {loading ? "Đang gửi..." : "Gửi link khôi phục"}
                   </button>
                 </div>
               </form>
             </div>
           </div>
+          )}
         </div>
         <div className="relative hidden w-0 flex-1 lg:block">
           <img
