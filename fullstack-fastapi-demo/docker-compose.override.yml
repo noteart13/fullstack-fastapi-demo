@@ -3,17 +3,8 @@ services:
   proxy:
     ports:
       - "80:80"
-      - "443:443"
       - "8090:8080"
-    volumes:
-      # Mount Cloudflare Origin Certificate
-      - ./traefik/certs:/certs:ro
-      # Mount dynamic TLS configuration
-      - ./traefik/dynamic:/dynamic:ro
     command:
-      # Entrypoints for HTTP and HTTPS
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
       # Enable Docker in Traefik, so that it reads labels from Docker services
       - --providers.docker
       # Add a constraint to only use services with the label for this stack
@@ -23,9 +14,6 @@ services:
       - --providers.docker.exposedbydefault=false
       # Disable Docker Swarm mode for local development
       # - --providers.docker.swarmmode
-      # Enable file provider for dynamic TLS configuration
-      - --providers.file.directory=/dynamic
-      - --providers.file.watch=true
       # Enable the access log, with HTTP requests
       - --accesslog
       # Enable the Traefik log, for configurations and errors
@@ -38,9 +26,6 @@ services:
       - traefik.enable=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-traefik-public-http.rule=Host(`${DOMAIN?Variable not set}`)
       - traefik.http.services.${STACK_NAME?Variable not set}-traefik-public.loadbalancer.server.port=80
-      # Define HTTPS redirect middleware for local development
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
 
   flower:
     ports:
@@ -70,12 +55,15 @@ services:
       # Define HTTPS redirect middleware
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=PathPrefix(`/api/v`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
+      # HTTP router (redirect to HTTPS)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=web
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=PathPrefix(`/api/v`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
+      # HTTPS router
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
+      # Service
       - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
 
   celeryworker:
@@ -101,16 +89,16 @@ services:
     labels:
       - traefik.enable=true
       - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
-      # Define HTTPS redirect middleware
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
+      # HTTP router (redirect to HTTPS)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=PathPrefix(`/`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=web
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
+      # HTTPS router
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=PathPrefix(`/`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
-      - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=80
+      # Service
+      - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=3000
 
 volumes:
   node_modules:

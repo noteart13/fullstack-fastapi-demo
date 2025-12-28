@@ -1,7 +1,7 @@
 version: "3.3"
 services:
   proxy:
-    image: traefik:v2.2
+    image: traefik:v3.6
     networks:
       - ${TRAEFIK_PUBLIC_NETWORK?Variable not set}
       - default
@@ -22,8 +22,8 @@ services:
       - --providers.docker.constraints=Label(`traefik.constraint-label-stack`, `${TRAEFIK_TAG?Variable not set}`)
       # Do not expose all Docker services, only the ones explicitly exposed
       - --providers.docker.exposedbydefault=false
-      # Enable Docker Swarm mode
-      - --providers.docker.swarmmode
+      # Disable Docker Swarm mode for Docker Compose
+      # - --providers.docker.swarmmode
       # Enable file provider for dynamic TLS configuration
       - --providers.file.directory=/dynamic
       - --providers.file.watch=true
@@ -132,6 +132,16 @@ services:
         BACKEND_PROCESS_MANAGER: ${BACKEND_PROCESS_MANAGER-gunicorn}
         BACKEND_WITH_RELOAD: ${BACKEND_WITH_RELOAD-false}
         INSTALL_DEV: ${INSTALL_DEV-false}
+    labels:
+      - traefik.enable=true
+      - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=web
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
+      - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
     deploy:
       labels:
         - traefik.enable=true
@@ -171,6 +181,16 @@ services:
       - ./frontend/.env.local
     build:
       context: ./frontend
+    labels:
+      - traefik.enable=true
+      - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=PathPrefix(`/`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=web
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=PathPrefix(`/`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
+      - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=3000
     deploy:
       labels:
         - traefik.enable=true
@@ -181,7 +201,7 @@ services:
         - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=PathPrefix(`/`)
         - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
         - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
-        - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=80
+        - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=3000
 
   mongodb:
     image: mongo
