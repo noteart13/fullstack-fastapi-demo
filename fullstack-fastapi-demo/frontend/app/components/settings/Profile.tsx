@@ -143,12 +143,12 @@ export default function Profile() {
 
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email address
-              </label>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Email address
+            </label>
               {!currentProfile.email_validated && (
                 <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
                   Chưa xác thực
