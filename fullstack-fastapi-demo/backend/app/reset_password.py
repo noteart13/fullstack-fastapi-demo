@@ -22,20 +22,36 @@ async def reset_user_password(user_identifier: str, new_password: str):
     try:
         # Connect to database
         db = MongoDatabase()
-        users_collection = db.users
+        # ODMantic uses singular collection name: "user" not "users"
+        users_collection = db.user
+        
+        # Debug: Print database and collection info
+        print(f"📊 Database: {db.name}")
+        print(f"📊 Collection: user")
         
         # Determine if identifier is ObjectId or email
         try:
             user_id = ObjectId(user_identifier)
             query = {"_id": user_id}
+            print(f"🔍 Searching by ObjectId: {user_id}")
         except:
             query = {"email": user_identifier}
+            print(f"🔍 Searching by email: {user_identifier}")
         
         # Find user
         user = await users_collection.find_one(query)
         
         if not user:
             print(f"❌ User not found: {user_identifier}")
+            # Debug: List all users (first 5) to help troubleshoot
+            print(f"🔍 Checking database...")
+            all_users = await users_collection.find({}).limit(5).to_list(length=5)
+            if all_users:
+                print(f"📋 Found {len(all_users)} user(s) in database:")
+                for u in all_users:
+                    print(f"   - Email: {u.get('email', 'N/A')}, ID: {u.get('_id', 'N/A')}")
+            else:
+                print(f"⚠️  No users found in database at all!")
             return False
         
         # Hash new password
