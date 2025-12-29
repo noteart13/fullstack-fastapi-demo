@@ -40,7 +40,8 @@ def send_email(
 def send_email_validation_email(data: EmailValidation) -> None:
     subject = f"{settings.PROJECT_NAME} - {data.subject}"
     server_host = settings.SERVER_HOST
-    link = f"{server_host}?token={data.token}"
+    # Link should point to frontend settings page with token
+    link = f"{server_host}/settings?token={data.token.get_secret_value()}"
     with open(Path(settings.EMAIL_TEMPLATES_DIR) / "confirm_email.html") as f:
         template_str = f.read()
     send_email(

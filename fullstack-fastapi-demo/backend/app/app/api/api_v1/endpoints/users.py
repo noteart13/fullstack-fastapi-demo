@@ -3,7 +3,9 @@ from typing import Any, List
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic.networks import EmailStr
+from pydantic import ValidationError
 from motor.core import AgnosticDatabase
+from jose import jwt
 
 from app import crud, models, schemas
 from app.api import deps
@@ -184,29 +186,41 @@ async def send_validation_email(
 async def validate_user_email(
     *,
     db: AgnosticDatabase = Depends(deps.get_db),
-    validation: str = Body(...),
+    validation: str = Body(..., embed=True),
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Validate email with token from email link.
-    Note: In a production system, you should verify the validation token
-    matches what was sent in the email. For now, we'll validate directly.
     """
     if current_user.email_validated:
         raise HTTPException(status_code=400, detail="Email already validated.")
     
-    # Verify token (simplified - in production should check token matches)
+    # Verify token by decoding it directly
     try:
-        # Try to parse token to verify it's valid
-        from app.api.deps import get_magic_token
-        token_data = get_magic_token(token=validation)
-        if token_data and str(token_data.sub) == str(current_user.id):
-            await crud.user.validate_email(db=db, db_obj=current_user)
-            return {"msg": "Email validated successfully."}
-        else:
+        from app.schemas import MagicTokenPayload
+        
+        # Decode the magic token
+        payload = jwt.decode(validation, settings.SECRET_KEY, algorithms=[settings.JWT_ALGO])
+        token_data = MagicTokenPayload(**payload)
+        
+        # Check if token subject matches current user
+        if str(token_data.sub) != str(current_user.id):
             raise HTTPException(status_code=400, detail="Invalid validation token.")
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid validation token.")
+        
+        # Validate the email
+        await crud.user.validate_email(db=db, db_obj=current_user)
+        return {"msg": "Email validated successfully."}
+        
+    except (jwt.JWTError, ValidationError, HTTPException):
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid or expired validation token. Please request a new validation email."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid validation token."
+        )
 
 
 @router.get("/tester", response_model=schemas.Msg)

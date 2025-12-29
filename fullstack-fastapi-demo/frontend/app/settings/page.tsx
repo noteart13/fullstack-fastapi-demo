@@ -56,7 +56,7 @@ export default function Settings() {
 
   return (
     <ProtectedRoute>
-      <main className="flex min-h-full mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+    <main className="flex min-h-full mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
       <div className="p-5">
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-5">
           <aside className="py-6 px-2 sm:px-6 lg:col-span-3 lg:py-0 lg:px-0">

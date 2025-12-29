@@ -24,7 +24,6 @@ import {
   validateTOTPClaim,
 } from "./tokensSlice";
 import { PURGE } from "redux-persist";
-import { apiAuth } from "../api";
 
 interface AuthState {
   id: string;

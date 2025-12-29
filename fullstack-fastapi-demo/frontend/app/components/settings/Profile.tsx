@@ -3,10 +3,11 @@
 import { IUserProfileUpdate } from "../../lib/interfaces";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
 import { useForm } from "react-hook-form";
-import { profile, updateUserProfile, sendEmailValidation } from "../../lib/slices/authSlice";
+import { profile, updateUserProfile, sendEmailValidation, validateEmail } from "../../lib/slices/authSlice";
 import { useEffect, useState } from "react";
 import { RootState } from "../../lib/store";
 import { token } from "../../lib/slices/tokensSlice";
+import { useSearchParams } from "next/navigation";
 
 const title = "Personal settings";
 const description =
@@ -33,6 +34,7 @@ const renderError = (type: LiteralUnion<keyof RegisterOptions, string>) => {
 
 export default function Profile() {
   const [updatedProfile, setState] = useState({} as IUserProfileUpdate);
+  const searchParams = useSearchParams();
 
   const dispatch = useAppDispatch();
   const currentProfile = useAppSelector((state: RootState) => profile(state));
@@ -63,7 +65,13 @@ export default function Profile() {
 
   useEffect(() => {
     resetProfile();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    
+    // Check if there's a validation token in URL
+    const validationToken = searchParams?.get('token');
+    if (validationToken && !currentProfile.email_validated && accessToken) {
+      dispatch(validateEmail(validationToken));
+    }
+  }, [searchParams, currentProfile.email_validated, accessToken, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submit(values: any) {
     let newProfile = {} as IUserProfileUpdate;

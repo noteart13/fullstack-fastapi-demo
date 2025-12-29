@@ -31,7 +31,7 @@ export default function RecoverPassword() {
   async function submit(values: any) {
     setLoading(true);
     try {
-      await dispatch(recoverPassword(values.email));
+    await dispatch(recoverPassword(values.email));
       setSubmitted(true);
     } catch (error) {
       handleApiError(error);

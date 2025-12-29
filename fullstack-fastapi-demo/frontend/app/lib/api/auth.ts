@@ -110,9 +110,15 @@ export const apiAuth = {
     return (await jsonify(res)) as ITokenResponse;
   },
   async revokeRefreshedToken(token: string): Promise<IMsg> {
-    return apiCore.fetchJSON<IMsg>(`${apiCore.url}/login/revoke`, {
+    // Note: revoke endpoint không dùng interceptor để tránh loop và cần gửi refresh token
+    const res = await fetch(`${apiCore.url}/login/revoke`, {
       method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     });
+    return (await jsonify(res)) as IMsg;
   },
   // USER PROFILE MANAGEMENT
   async createProfile(data: IUserOpenProfileCreate): Promise<IUserProfile> {

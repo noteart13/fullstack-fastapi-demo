@@ -5,7 +5,7 @@ import { QrCodeIcon } from "@heroicons/react/24/outline";
 import { apiAuth } from "../../lib/api";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { RootState } from "../../lib/store";
 import {
   IEnableTOTP,
@@ -23,7 +23,6 @@ import { addNotice } from "../../lib/slices/toastsSlice";
 import { QRCodeSVG } from "qrcode.react";
 
 const title = "Security";
-const redirectTOTP = "/settings";
 const qrSize = 200;
 
 const resetProfile = () => {
@@ -59,6 +58,7 @@ export default function Security() {
   const [totpModal, changeTotpModal] = useState(false);
   const [totpNew, changeTotpNew] = useState({} as INewTOTP);
   const [totpClaim, changeTotpClaim] = useState({} as IEnableTOTP);
+  const [originalPassword, setOriginalPassword] = useState("");
 
   const dispatch = useAppDispatch();
   const currentProfile = useAppSelector((state: RootState) => profile(state));
@@ -75,6 +75,7 @@ export default function Security() {
     register: registerTotp,
     handleSubmit: handleSubmitTotp,
     formState: { errors: errorsTotp },
+    reset: resetTotp,
   } = useForm();
 
   const schema = {
@@ -94,37 +95,66 @@ export default function Security() {
   useEffect(() => {
     setProfile(resetProfile());
     changeTotpEnabled(currentProfile.totp);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentProfile.totp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // @ts-ignore
   async function enableTOTP(values: any) {
-    totpClaim.claim = values.claim;
-    await dispatch(enableTOTPAuthentication(totpClaim));
-    changeTotpModal(false);
+    try {
+      const totpData: IEnableTOTP = {
+        claim: values.claim,
+        uri: totpClaim.uri,
+        // Use password from totpClaim (set in submit function) or originalPassword state
+        password: totpClaim.password || originalPassword || undefined,
+      };
+      
+      await dispatch(enableTOTPAuthentication(totpData));
+      changeTotpModal(false);
+      resetTotp();
+    } catch (error) {
+      dispatch(
+        addNotice({
+          title: "Two-Factor Setup error",
+          content: "Failed to enable TOTP. Please check your code and try again.",
+          icon: "error",
+        }),
+      );
+    }
   }
 
   // @ts-ignore
   async function submit(values: any) {
     let newProfile = {} as IUserProfileUpdate;
+    
     if (
       (!currentProfile.password && !values.original) ||
       (currentProfile.password && values.original)
     ) {
-      if (values.original) newProfile.original = values.original;
+      if (values.original) {
+        newProfile.original = values.original;
+        setOriginalPassword(values.original);
+      }
+      
+      // Update password if changed
       if (values.password && values.password !== values.original) {
         newProfile.password = values.password;
         await dispatch(updateUserProfile(newProfile));
       }
+      
+      // Handle TOTP enable
       if (totpEnabled !== currentProfile.totp && totpEnabled) {
         await dispatch(refreshTokens());
         try {
           const res = await apiAuth.requestNewTOTP(accessToken);
-          if (res) {
-            totpNew.key = res.key;
-            totpNew.uri = res.uri;
-            totpClaim.uri = res.uri;
-            totpClaim.password = values.original;
+          if (res && res.uri) {
+            changeTotpNew(res);
+            changeTotpClaim({
+              uri: res.uri,
+              claim: "",
+              password: values.original,
+            });
             changeTotpModal(true);
+          } else {
+            throw new Error("Failed to get TOTP data");
           }
         } catch (error) {
           dispatch(
@@ -132,14 +162,17 @@ export default function Security() {
               title: "Two-Factor Setup error",
               content:
                 "Failed to fetch a Two-Factor enablement code, please try again!",
+              icon: "error",
             }),
           );
+          changeTotpEnabled(false);
         }
       }
+      
+      // Handle TOTP disable
       if (totpEnabled !== currentProfile.totp && !totpEnabled) {
         await dispatch(disableTOTPAuthentication(newProfile));
       }
-      // resetForm()
     }
   }
 
@@ -178,7 +211,7 @@ export default function Security() {
                 id="original"
                 name="original"
                 type="password"
-                autoComplete="password"
+                autoComplete="current-password"
                 className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
               />
               {errors.original && renderError(errors.original.type)}
@@ -217,6 +250,7 @@ export default function Security() {
               </Switch>
             </div>
           </div>
+          
           <div className="space-y-1">
             <label
               htmlFor="password"
@@ -230,7 +264,7 @@ export default function Security() {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="password"
+                autoComplete="new-password"
                 className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
               />
               {errors.password && renderError(errors.password.type)}
@@ -249,13 +283,13 @@ export default function Security() {
                 {...register("confirmation", {
                   ...schema.confirmation,
                   validate: {
-                    match: (val) => watch("password") == val,
+                    match: (val) => !watch("password") || watch("password") == val,
                   },
                 })}
                 id="confirmation"
                 name="confirmation"
                 type="password"
-                autoComplete="confirmation"
+                autoComplete="new-password"
                 className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
               />
               {errors.confirmation && renderError(errors.confirmation.type)}
@@ -271,19 +305,21 @@ export default function Security() {
           </button>
         </div>
       </form>
-      <Transition show={totpModal}>
+      
+      <Transition appear show={totpModal} as={Fragment}>
         <Dialog
           as="div"
           className="relative z-10"
           onClose={() => changeTotpModal(false)}
         >
           <Transition.Child
+            as={Fragment}
             enter="ease-out duration-300"
-            enter-from="opacity-0"
-            enter-to="opacity-100"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
             leave="ease-in duration-200"
-            leave-from="opacity-100"
-            leave-to="opacity-0"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
           >
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
           </Transition.Child>
@@ -291,12 +327,13 @@ export default function Security() {
           <div className="fixed inset-0 z-10 overflow-y-auto">
             <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
               <Transition.Child
+                as={Fragment}
                 enter="ease-out duration-300"
-                enter-from="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                enter-to="opacity-100 translate-y-0 sm:scale-100"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
                 leave="ease-in duration-200"
-                leave-from="opacity-100 translate-y-0 sm:scale-100"
-                leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
               >
                 <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
                   <div className="sm:flex sm:items-start">
@@ -306,7 +343,7 @@ export default function Security() {
                         aria-hidden="true"
                       />
                     </div>
-                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                       <Dialog.Title
                         as="h3"
                         className="text-lg font-medium leading-6 text-gray-900"
@@ -320,7 +357,7 @@ export default function Security() {
                             <p className="ml-3 text-sm leading-6 text-gray-600">
                               Download an authenticator app that supports
                               Time-based One-Time Password (TOTP) for your
-                              mobile device.
+                              mobile device (Google Authenticator, Authy, etc).
                             </p>
                           </li>
                           <li className="flex items-start">
@@ -330,26 +367,29 @@ export default function Security() {
                                 Open the app and scan the QR code below to pair
                                 your mobile with your account.
                               </p>
-                              <QRCodeSVG
-                                value={totpNew.uri}
-                                size={qrSize}
-                                level="M"
-                                className="my-2 mx-auto"
-                              />
-                              <p>
+                              {totpNew.uri && (
+                                <div className="my-4 flex justify-center">
+                                  <QRCodeSVG
+                                    value={totpNew.uri}
+                                    size={qrSize}
+                                    level="M"
+                                  />
+                                </div>
+                              )}
+                              <p className="mt-2">
                                 If you can&apos;t scan, you can type in the
                                 following key:
                               </p>
-                              <p className="text-md font-semibold my-2 text-center">
+                              <p className="text-md font-semibold my-2 text-center break-all">
                                 {totpNew.key}
                               </p>
                             </div>
                           </li>
                           <li className="flex items-start">
                             <div className="flex-shrink-0">3</div>
-                            <div className="ml-3 text-sm leading-6 text-gray-600">
+                            <div className="ml-3 text-sm leading-6 text-gray-600 w-full">
                               <p>
-                                Enter the code generated by your Authenticator
+                                Enter the 6-digit code generated by your Authenticator
                                 app below to pair your account:
                               </p>
                               <form
@@ -373,6 +413,7 @@ export default function Security() {
                                       name="claim"
                                       type="text"
                                       autoComplete="off"
+                                      placeholder="123456"
                                       className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-rose-600 focus:outline-none focus:ring-rose-600 sm:text-sm"
                                     />
                                     {errorsTotp.claim &&
@@ -389,7 +430,10 @@ export default function Security() {
                                   <button
                                     type="button"
                                     className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
-                                    onClick={() => changeTotpModal(false)}
+                                    onClick={() => {
+                                      changeTotpModal(false);
+                                      resetTotp();
+                                    }}
                                   >
                                     Cancel
                                   </button>

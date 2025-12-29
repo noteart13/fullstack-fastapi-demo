@@ -61,7 +61,7 @@ function UnsuspendedResetPassword() {
     try {
       await dispatch(resetPassword(values.password, token));
       // Success - redirect to login
-      router.push(redirectRoute);
+    router.push(redirectRoute);
     } catch (error) {
       handleApiError(error);
     } finally {
