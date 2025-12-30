@@ -1,8 +1,9 @@
-version: "3.3"
+# version: "3.3"  # Removed - version is obsolete in Docker Compose v2+
 services:
   proxy:
     ports:
       - "80:80"
+      - "443:443"
       - "8090:8080"
     command:
       # Enable Docker in Traefik, so that it reads labels from Docker services
@@ -36,6 +37,9 @@ services:
       - "8888:8888"
     volumes:
       - ./backend/app/app:/app/app
+    networks:
+      - traefik-public
+      - default
     environment:
       - JUPYTER=jupyter lab --ip=0.0.0.0 --allow-root --NotebookApp.custom_display_url=http://127.0.0.1:8888
       - SERVER_HOST=http://${DOMAIN?Variable not set}
@@ -49,26 +53,13 @@ services:
         BACKEND_WITH_RELOAD: ${BACKEND_WITH_RELOAD-true}
         INSTALL_DEV: ${INSTALL_DEV-true}
         INSTALL_JUPYTER: ${INSTALL_JUPYTER-true}
-    labels:
-      - traefik.enable=true
-      - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
-      # Define HTTPS redirect middleware
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
-      # HTTP router (redirect to HTTPS)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=web
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      # HTTPS router
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=websecure
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
-      # Service
-      - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
 
   celeryworker:
     volumes:
       - ./backend/app:/app
+    networks:
+      - traefik-public
+      - default
     environment:
       - RUN=celery worker -A app.worker -l info -Q main-queue -c 1
       - JUPYTER=jupyter lab --ip=0.0.0.0 --allow-root --NotebookApp.custom_display_url=http://127.0.0.1:8888
@@ -83,22 +74,12 @@ services:
   frontend:
     ports:
       - "3000:3000"
+    networks:
+      - traefik-public
+      - default
     build:
       context: ./frontend
       target: runner
-    labels:
-      - traefik.enable=true
-      - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
-      # HTTP router (redirect to HTTPS)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=PathPrefix(`/`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=web
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      # HTTPS router
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=PathPrefix(`/`)
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
-      # Service
-      - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=3000
 
 volumes:
   node_modules:
@@ -106,4 +87,5 @@ volumes:
 networks:
   traefik-public:
     # For local dev, don't expect an external Traefik network
-    external: false
+    # Note: This will be overridden by docker-compose.yml if TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL is set
+    external: ${TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL-false}

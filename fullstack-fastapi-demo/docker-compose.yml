@@ -1,4 +1,4 @@
-version: "3.3"
+# version: "3.3"  # Removed - version is obsolete in Docker Compose v2+
 services:
   proxy:
     image: traefik:v3.6
@@ -11,6 +11,10 @@ services:
       - ./traefik/certs:/certs:ro
       # Mount dynamic TLS configuration
       - ./traefik/dynamic:/dynamic:ro
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8090:8080"
     command:
       # Entrypoints for HTTP and HTTPS
       - --entrypoints.web.address=:80
@@ -111,6 +115,9 @@ services:
 
   backend:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
+    networks:
+      - traefik-public
+      - default
     logging:
       driver: "json-file"
       options:
@@ -134,28 +141,23 @@ services:
         INSTALL_DEV: ${INSTALL_DEV-false}
     labels:
       - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_PUBLIC_NETWORK?Variable not set}
       - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
+      # HTTP router - redirects to HTTPS
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=web
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
+      # HTTPS router - main backend access
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
       - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
-    deploy:
-      labels:
-        - traefik.enable=true
-        - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
-        - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
-        - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=web
-        - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-        - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
-        - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=websecure
-        - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
-        - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
 
   celeryworker:
     image: "${DOCKER_IMAGE_CELERYWORKER?Variable not set}:${TAG-latest}"
+    networks:
+      - traefik-public
+      - default
     logging:
       driver: "json-file"
       options:
@@ -176,6 +178,9 @@ services:
   
   frontend:
     image: "${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}"
+    networks:
+      - traefik-public
+      - default
     env_file:
       - .env
       - ./frontend/.env.local
@@ -186,10 +191,10 @@ services:
     labels:
       - traefik.enable=true
       - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=PathPrefix(`/`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=web
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=PathPrefix(`/`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
       - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=3000
@@ -197,10 +202,10 @@ services:
       labels:
         - traefik.enable=true
         - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
-        - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=PathPrefix(`/`)
+        - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
         - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.entrypoints=web
         - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-        - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=PathPrefix(`/`)
+        - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
         - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.entrypoints=websecure
         - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-https.tls=true
         - traefik.http.services.${STACK_NAME?Variable not set}-frontend.loadbalancer.server.port=3000
