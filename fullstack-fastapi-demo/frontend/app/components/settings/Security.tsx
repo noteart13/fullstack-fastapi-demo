@@ -101,12 +101,21 @@ export default function Security() {
   // @ts-ignore
   async function enableTOTP(values: any) {
     try {
+      // Build TOTP data - only include password if user has password
       const totpData: IEnableTOTP = {
         claim: values.claim,
         uri: totpClaim.uri,
-        // Use password from totpClaim (set in submit function) or originalPassword state
-        password: totpClaim.password || originalPassword || undefined,
       };
+      
+      // Only add password if user has password set
+      if (currentProfile.password) {
+        const passwordValue = totpClaim.password || originalPassword;
+        if (passwordValue && passwordValue.trim()) {
+          totpData.password = passwordValue;
+        } else {
+          throw new Error("Password is required to enable TOTP");
+        }
+      }
       
       const result = await dispatch(enableTOTPAuthentication(totpData));
       // @ts-ignore

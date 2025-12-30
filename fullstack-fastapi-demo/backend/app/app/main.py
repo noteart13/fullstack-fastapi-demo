@@ -8,7 +8,6 @@ from app.core.config import settings
 
 @asynccontextmanager
 async def app_init(app: FastAPI):
-    app.include_router(api_router, prefix=settings.API_V1_STR)
     yield
 
 
@@ -17,6 +16,8 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     lifespan=app_init,
 )
+
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:

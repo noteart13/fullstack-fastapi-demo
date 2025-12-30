@@ -55,7 +55,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     async def activate_totp(self, db: AgnosticDatabase, *, db_obj: User, totp_in: NewTOTP) -> User: # noqa
         obj_in = UserUpdate(**UserInDB.model_validate(db_obj).model_dump())
         obj_in = obj_in.model_dump(exclude_unset=True)
-        obj_in["totp_secret"] = totp_in.secret
+        obj_in["totp_secret"] = totp_in.secret.get_secret_value() if totp_in.secret else None
         return await self.update(db=db, db_obj=db_obj, obj_in=obj_in)
 
     async def deactivate_totp(self, db: AgnosticDatabase, *, db_obj: User) -> User: # noqa

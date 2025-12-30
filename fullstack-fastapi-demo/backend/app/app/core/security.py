@@ -85,8 +85,12 @@ def verify_totp(*, token: str, secret: str, last_counter: int = None) -> Union[s
     last_counter: int from user in db (may be None)
     """
     try:
-        match = totp_factory.verify(token, secret, last_counter=last_counter)
-    except (MalformedTokenError, TokenError):
+        if secret.strip().startswith("{"):
+            totp = TOTP.from_json(secret)
+            match = totp.verify(token, last_counter=last_counter)
+        else:
+            match = totp_factory.verify(token, secret, last_counter=last_counter)
+    except (MalformedTokenError, TokenError, ValueError):
         return False
     else:
         return match.counter
