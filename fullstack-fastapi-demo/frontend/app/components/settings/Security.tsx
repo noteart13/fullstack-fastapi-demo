@@ -108,14 +108,22 @@ export default function Security() {
         password: totpClaim.password || originalPassword || undefined,
       };
       
-      await dispatch(enableTOTPAuthentication(totpData));
+      const result = await dispatch(enableTOTPAuthentication(totpData));
+      // @ts-ignore
+      if (result.error) throw result.error;
+      
       changeTotpModal(false);
       resetTotp();
-    } catch (error) {
+    } catch (error: any) {
+      let errorMessage = "Failed to enable TOTP. Please check your code and try again.";
+      if (error?.message?.toLowerCase().includes("network") || error?.message?.toLowerCase().includes("fetch")) {
+        errorMessage = "Network error. Please check your internet connection.";
+      }
+      
       dispatch(
         addNotice({
           title: "Two-Factor Setup error",
-          content: "Failed to enable TOTP. Please check your code and try again.",
+          content: errorMessage,
           icon: "error",
         }),
       );

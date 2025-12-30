@@ -67,8 +67,8 @@ export default function Profile() {
   useEffect(() => {
     resetProfile();
     
-    // Check if there's a validation token in URL
-    const validationToken = searchParams?.get('token');
+    // Check if there's a validation token in URL (support both formats)
+    const validationToken = searchParams?.get('validation_token') || searchParams?.get('token');
     if (validationToken && !currentProfile.email_validated && accessToken) {
       dispatch(validateEmail(validationToken));
     }
