@@ -1,7 +1,8 @@
 "use client"
 
 import { useAppDispatch, useAppSelector } from "../lib/hooks"
-import { login, loggedIn } from "../lib/slices/authSlice"
+import { loggedIn } from "../lib/slices/authSlice"
+import { login } from "../lib/thunks/auth"
 import { useRouter, useSearchParams } from "next/navigation"
 import { tokenIsTOTP, tokenParser } from "../lib/utilities"
 import { Switch } from "@headlessui/react"
@@ -95,8 +96,7 @@ function LoginMessage(oauth: boolean) {
           Login with email
         </h2>
         <p className="text-sm font-medium text-rose-500 hover:text-rose-600 mt-6">
-          We&apos;ll check if you have an account, and create one if you
-          don&apos;t.
+          Enter your email to receive a magic link.
         </p>
       </div>
     );
@@ -205,6 +205,13 @@ function UnsuspendedPage() {
                 Submit
               </button>
             </form>
+          </div>
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-gray-600">Don&apos;t have an account? </span>
+            <Link href="/register" className="font-medium text-rose-500 hover:text-rose-600">
+                Sign up
+            </Link>
           </div>
 
           <div className="mt-8 flex items-center justify-between">

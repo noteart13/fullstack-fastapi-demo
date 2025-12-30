@@ -5,7 +5,8 @@ import { IUserProfileUpdate } from "../../lib/interfaces";
 import CheckToggle from "./CheckToggle";
 import { useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
-import { refreshTokens, token } from "../../lib/slices/tokensSlice";
+import { token } from "../../lib/slices/tokensSlice";
+import { refreshTokens } from "../../lib/thunks/tokens";
 import { addNotice } from "../../lib/slices/toastsSlice";
 import { RootState } from "../../lib/store";
 

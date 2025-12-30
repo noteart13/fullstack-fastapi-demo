@@ -1,21 +1,8 @@
 import { fetchWithAuth, fetchJSON } from "./interceptor";
-
-// Ensure API URL always ends with /api/v1
-const getApiUrl = () => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl) {
-    // If env URL is set, use it as-is (should already include /api/v1)
-    return envUrl;
-  }
-  // Fallback: construct from window.location.origin
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/api/v1`;
-  }
-  return '/api/v1';
-};
+import { API_URL } from "./config";
 
 export const apiCore = {
-  url: getApiUrl(),
+  url: API_URL,
   
   /**
    * Headers với token (deprecated - dùng fetchWithAuth thay thế)

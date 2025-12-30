@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAppDispatch } from "../lib/hooks"
 import { useForm } from "react-hook-form"
-import { resetPassword } from "../lib/slices/authSlice"
+import { resetPassword } from "../lib/thunks/auth"
 import { Suspense, useEffect, useState } from "react"
 import Image from "next/image"
 import { handleApiError } from "../lib/api/errorHandler"

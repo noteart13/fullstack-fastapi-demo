@@ -1,5 +1,6 @@
 from typing import Any, List
 
+from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic.networks import EmailStr
@@ -187,14 +188,10 @@ async def validate_user_email(
     *,
     db: AgnosticDatabase = Depends(deps.get_db),
     validation: str = Body(..., embed=True),
-    current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Validate email with token from email link.
     """
-    if current_user.email_validated:
-        raise HTTPException(status_code=400, detail="Email already validated.")
-    
     # Verify token by decoding it directly
     try:
         from app.schemas import MagicTokenPayload
@@ -203,15 +200,19 @@ async def validate_user_email(
         payload = jwt.decode(validation, settings.SECRET_KEY, algorithms=[settings.JWT_ALGO])
         token_data = MagicTokenPayload(**payload)
         
-        # Check if token subject matches current user
-        if str(token_data.sub) != str(current_user.id):
-            raise HTTPException(status_code=400, detail="Invalid validation token.")
+        # Get user from DB
+        user = await crud.user.get(db, id=ObjectId(token_data.sub))
+        if not user:
+             raise HTTPException(status_code=400, detail="Invalid validation token.")
+
+        if user.email_validated:
+             return {"msg": "Email already validated."}
         
         # Validate the email
-        await crud.user.validate_email(db=db, db_obj=current_user)
+        await crud.user.validate_email(db=db, db_obj=user)
         return {"msg": "Email validated successfully."}
         
-    except (jwt.JWTError, ValidationError, HTTPException):
+    except (jwt.JWTError, ValidationError):
         raise HTTPException(
             status_code=400, 
             detail="Invalid or expired validation token. Please request a new validation email."

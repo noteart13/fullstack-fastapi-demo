@@ -8,7 +8,8 @@ import { useAppDispatch, useAppSelector } from "../lib/hooks";
 import Link from "next/link";
 import { RootState } from "../lib/store";
 import { useRouter } from "next/navigation";
-import { loggedIn, logout } from "../lib/slices/authSlice";
+import { loggedIn } from "../lib/slices/authSlice";
+import { logout } from "../lib/thunks/auth";
 
 const redirectRoute = "/login";
 

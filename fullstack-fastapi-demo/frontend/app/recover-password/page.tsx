@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "../lib/hooks";
 import { useForm } from "react-hook-form";
-import { loggedIn, recoverPassword } from "../lib/slices/authSlice";
+import { loggedIn } from "../lib/slices/authSlice";
+import { recoverPassword } from "../lib/thunks/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RootState } from "../lib/store";

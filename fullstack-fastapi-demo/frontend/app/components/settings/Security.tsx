@@ -15,10 +15,11 @@ import {
 import {
   disableTOTPAuthentication,
   enableTOTPAuthentication,
-  profile,
   updateUserProfile,
-} from "../../lib/slices/authSlice";
-import { refreshTokens, token } from "../../lib/slices/tokensSlice";
+} from "../../lib/thunks/auth";
+import { profile } from "../../lib/slices/authSlice";
+import { token } from "../../lib/slices/tokensSlice";
+import { refreshTokens } from "../../lib/thunks/tokens";
 import { addNotice } from "../../lib/slices/toastsSlice";
 import { QRCodeSVG } from "qrcode.react";
 

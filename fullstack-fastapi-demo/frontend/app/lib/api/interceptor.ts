@@ -4,11 +4,10 @@
  * Chống spam refresh với mutex/queue
  */
 
-import { apiCore } from "./core";
-import { apiAuth } from "./auth";
 import { store } from "../store";
 import { setTokens, deleteTokens } from "../slices/tokensSlice";
-import { logout } from "../slices/authSlice";
+import { deleteAuth } from "../slices/authSlice";
+import { getRefreshedToken } from "./auth-functions";
 import type { RootState } from "../store";
 
 // Mutex để chống spam refresh
@@ -31,15 +30,14 @@ async function doRefreshToken(): Promise<string | null> {
   }
 
   try {
-    const response = await apiAuth.getRefreshedToken(refreshToken);
+    const response = await getRefreshedToken(refreshToken);
     store.dispatch(setTokens(response));
     return response.access_token;
   } catch (error) {
     // Refresh failed → logout
     store.dispatch(deleteTokens());
-    // Gọi logout action (không await để tránh circular)
-    const logoutAction = logout();
-    store.dispatch(logoutAction as any);
+    // Clear auth state
+    store.dispatch(deleteAuth());
     
     // Reject tất cả requests đang chờ
     failedQueue.forEach(({ reject }) => reject(error));

@@ -8,25 +8,15 @@ import {
   INewTOTP,
   IEnableTOTP,
   IMsg,
-  IErrorResponse,
 } from "../interfaces";
 import { apiCore } from "./core";
-
-const jsonify = async (response: Response) => {
-  if (response.ok) {
-    return await response.json();
-  } else {
-    throw {
-      message: `Request failed with ${response.status}: ${response.statusText}`,
-      code: response.status,
-    } as IErrorResponse;
-  }
-};
+import { API_URL } from "./config";
+import { jsonify, getRefreshedToken, revokeRefreshedToken } from "./auth-functions";
 
 export const apiAuth = {
   // LOGIN WITH MAGIC LINK OR OAUTH2 (USERNAME/PASSWORD)
   async loginWithMagicLink(email: string): Promise<IWebToken> {
-    const res = await fetch(`${apiCore.url}/login/magic/${email}`, {
+    const res = await fetch(`${API_URL}/login/magic/${email}`, {
       method: "POST",
     });
     return (await jsonify(res)) as IWebToken;
@@ -35,7 +25,7 @@ export const apiAuth = {
     token: string,
     data: IWebToken,
   ): Promise<ITokenResponse> {
-    const res = await fetch(`${apiCore.url}/login/claim`, {
+    const res = await fetch(`${API_URL}/login/claim`, {
       method: "POST",
       body: JSON.stringify(data),
       headers: apiCore.headers(token),
@@ -52,7 +42,7 @@ export const apiAuth = {
     params.append("username", username);
     params.append("password", password);
     params.append("grant_type", "password");
-    const res = await fetch(`${apiCore.url}/login/oauth`, {
+    const res = await fetch(`${API_URL}/login/oauth`, {
       method: "POST",
       body: params,
       headers: {
@@ -64,7 +54,7 @@ export const apiAuth = {
   // TOTP SETUP AND AUTHENTICATION
   async loginWithTOTP(token: string, data: IWebToken): Promise<ITokenResponse> {
     // Note: TOTP login không dùng interceptor vì token là TOTP token, không phải access token
-    const res = await fetch(`${apiCore.url}/login/totp`, {
+    const res = await fetch(`${API_URL}/login/totp`, {
       method: "POST",
       body: JSON.stringify(data),
       headers: {
@@ -75,7 +65,7 @@ export const apiAuth = {
     return (await jsonify(res)) as ITokenResponse;
   },
   async requestNewTOTP(token: string): Promise<INewTOTP> {
-    return apiCore.fetchJSON<INewTOTP>(`${apiCore.url}/users/new-totp`, {
+    return apiCore.fetchJSON<INewTOTP>(`${API_URL}/users/new-totp`, {
       method: "POST",
     });
   },
@@ -83,7 +73,7 @@ export const apiAuth = {
     token: string,
     data: IEnableTOTP,
   ): Promise<IMsg> {
-    return apiCore.fetchJSON<IMsg>(`${apiCore.url}/login/totp`, {
+    return apiCore.fetchJSON<IMsg>(`${API_URL}/login/totp`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
@@ -92,44 +82,28 @@ export const apiAuth = {
     token: string,
     data: IUserProfileUpdate,
   ): Promise<IMsg> {
-    return apiCore.fetchJSON<IMsg>(`${apiCore.url}/login/totp`, {
+    return apiCore.fetchJSON<IMsg>(`${API_URL}/login/totp`, {
       method: "DELETE",
       body: JSON.stringify(data),
     });
   },
   // MANAGE JWT TOKENS (REFRESH / REVOKE)
   async getRefreshedToken(token: string): Promise<ITokenResponse> {
-    // Note: refresh endpoint không dùng interceptor để tránh loop
-    const res = await fetch(`${apiCore.url}/login/refresh`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    return (await jsonify(res)) as ITokenResponse;
+    return getRefreshedToken(token);
   },
   async revokeRefreshedToken(token: string): Promise<IMsg> {
-    // Note: revoke endpoint không dùng interceptor để tránh loop và cần gửi refresh token
-    const res = await fetch(`${apiCore.url}/login/revoke`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    return (await jsonify(res)) as IMsg;
+    return revokeRefreshedToken(token);
   },
   // USER PROFILE MANAGEMENT
   async createProfile(data: IUserOpenProfileCreate): Promise<IUserProfile> {
-    const res = await fetch(`${apiCore.url}/users/`, {
+    const res = await fetch(`${API_URL}/users/`, {
       method: "POST",
       body: JSON.stringify(data),
     });
     return (await jsonify(res)) as IUserProfile;
   },
   async getProfile(token: string): Promise<IUserProfile> {
-    return apiCore.fetchJSON<IUserProfile>(`${apiCore.url}/users/`, {
+    return apiCore.fetchJSON<IUserProfile>(`${API_URL}/users/`, {
       method: "GET",
     });
   },
@@ -137,14 +111,14 @@ export const apiAuth = {
     token: string,
     data: IUserProfileUpdate,
   ): Promise<IUserProfile> {
-    return apiCore.fetchJSON<IUserProfile>(`${apiCore.url}/users/`, {
+    return apiCore.fetchJSON<IUserProfile>(`${API_URL}/users/`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
   },
   // ACCOUNT RECOVERY
   async recoverPassword(email: string): Promise<IMsg | IWebToken> {
-    const res = await fetch(`${apiCore.url}/login/recover/${email}`, {
+    const res = await fetch(`${API_URL}/login/recover/${email}`, {
       method: "POST",
     });
     return (await jsonify(res)) as IMsg | IWebToken;
@@ -154,7 +128,7 @@ export const apiAuth = {
     claim: string,
     token: string,
   ): Promise<IMsg> {
-    const res = await fetch(`${apiCore.url}/login/reset`, {
+    const res = await fetch(`${API_URL}/login/reset`, {
       method: "POST",
       body: JSON.stringify({
         new_password: password,
@@ -165,19 +139,19 @@ export const apiAuth = {
     return (await jsonify(res)) as IMsg;
   },
   async requestValidationEmail(token: string): Promise<IMsg> {
-    return apiCore.fetchJSON<IMsg>(`${apiCore.url}/users/send-validation-email`, {
+    return apiCore.fetchJSON<IMsg>(`${API_URL}/users/send-validation-email`, {
       method: "POST",
     });
   },
   async validateEmail(token: string, validation: string): Promise<IMsg> {
-    return apiCore.fetchJSON<IMsg>(`${apiCore.url}/users/validate-email`, {
+    return apiCore.fetchJSON<IMsg>(`${API_URL}/users/validate-email`, {
       method: "POST",
       body: JSON.stringify({ validation }),
     });
   },
   // ADMIN USER MANAGEMENT
   async getAllUsers(token: string): Promise<IUserProfile[]> {
-    return apiCore.fetchJSON<IUserProfile[]>(`${apiCore.url}/users/all`, {
+    return apiCore.fetchJSON<IUserProfile[]>(`${API_URL}/users/all`, {
       method: "GET",
     });
   },
@@ -185,7 +159,7 @@ export const apiAuth = {
     token: string,
     data: IUserProfileUpdate,
   ): Promise<IMsg> {
-    return apiCore.fetchJSON<IMsg>(`${apiCore.url}/users/toggle-state`, {
+    return apiCore.fetchJSON<IMsg>(`${API_URL}/users/toggle-state`, {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -194,7 +168,7 @@ export const apiAuth = {
     token: string,
     data: IUserProfileCreate,
   ): Promise<IUserProfile> {
-    return apiCore.fetchJSON<IUserProfile>(`${apiCore.url}/users/create`, {
+    return apiCore.fetchJSON<IUserProfile>(`${API_URL}/users/create`, {
       method: "POST",
       body: JSON.stringify(data),
     });

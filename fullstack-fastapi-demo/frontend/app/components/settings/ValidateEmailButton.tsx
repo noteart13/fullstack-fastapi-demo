@@ -2,7 +2,7 @@
 
 import { AtSymbolIcon } from "@heroicons/react/24/outline";
 import { useAppDispatch } from "../../lib/hooks";
-import { sendEmailValidation } from "../../lib/slices/authSlice";
+import { sendEmailValidation } from "../../lib/thunks/auth";
 
 export default function ValidateEmailButton() {
   const dispatch = useAppDispatch();

@@ -5,7 +5,8 @@ import type { RootState } from "../../lib/store";
 import { Menu, Transition } from "@headlessui/react";
 import { ArrowLeftOnRectangleIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
-import { loggedIn, logout } from "../../lib/slices/authSlice";
+import { loggedIn } from "../../lib/slices/authSlice";
+import { logout } from "../../lib/thunks/auth";
 import { useRouter } from "next/navigation";
 
 const navigation = [{ name: "Settings", to: "/settings" }];

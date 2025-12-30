@@ -3,7 +3,8 @@
 import { IUserProfileUpdate } from "../../lib/interfaces";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
 import { useForm } from "react-hook-form";
-import { profile, updateUserProfile, sendEmailValidation, validateEmail } from "../../lib/slices/authSlice";
+import { profile } from "../../lib/slices/authSlice";
+import { updateUserProfile, sendEmailValidation, validateEmail } from "../../lib/thunks/auth";
 import { useEffect, useState } from "react";
 import { RootState } from "../../lib/store";
 import { token } from "../../lib/slices/tokensSlice";
@@ -75,14 +76,28 @@ export default function Profile() {
 
   async function submit(values: any) {
     let newProfile = {} as IUserProfileUpdate;
+    
+    // Kiểm tra password requirement
     if (
       (!currentProfile.password && !values.original) ||
       (currentProfile.password && values.original)
     ) {
-      if (values.original) newProfile.original = values.original;
-      if (values.email) {
-        newProfile.email = values.email;
-        if (values.fullName) newProfile.fullName = values.fullName;
+      // Luôn gửi original password nếu user có password
+      if (values.original) {
+        newProfile.original = values.original;
+      }
+      
+      // ✅ FIX: Update nếu có fullName HOẶC email (không chỉ email)
+      const hasChanges = values.fullName || values.email;
+      
+      if (hasChanges) {
+        if (values.fullName) {
+          newProfile.fullName = values.fullName;
+        }
+        if (values.email) {
+          newProfile.email = values.email;
+        }
+        
         await dispatch(updateUserProfile(newProfile));
         resetProfile();
       }
