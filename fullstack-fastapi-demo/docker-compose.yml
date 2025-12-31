@@ -58,12 +58,16 @@ services:
         # Uses environment variable DOMAIN
         # To disable www redirection remove the Host() you want to discard, here and
         # below for HTTPS
-        - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
-        - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.entrypoints=web
+        # TEMPORARILY DISABLED to test if it's causing redirect loop
+        # - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && !PathPrefix(`/api`) && !PathPrefix(`/docs`) && !PathPrefix(`/redoc`)
+        # - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.entrypoints=web
+        # - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.priority=50
         # traefik-https the actual router using HTTPS
-        - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
-        - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.entrypoints=websecure
-        - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.tls=true
+        # TEMPORARILY DISABLED to test if it's causing redirect loop
+        # - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && !PathPrefix(`/api`) && !PathPrefix(`/docs`) && !PathPrefix(`/redoc`)
+        # - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.entrypoints=websecure
+        # - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.tls=true
+        # - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.priority=50
         # Define the port inside of the Docker service to use
         - traefik.http.services.${STACK_NAME?Variable not set}-proxy.loadbalancer.server.port=80
         # Handle domain with and without "www" to redirect to only one
@@ -76,10 +80,12 @@ services:
         # To enable it remove the previous line and uncomment the next
         # - traefik.http.middlewares.${STACK_NAME}-www-redirect.redirectregex.replacement=https://www.${DOMAIN}/$${3}
         # Middleware to redirect www, to disable it remove the next line
-        - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
+        # TEMPORARILY DISABLED to fix redirect loop
+        # - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-https.middlewares=${STACK_NAME?Variable not set}-www-redirect
         # Middleware to redirect www, and redirect HTTP to HTTPS
+        # TEMPORARILY DISABLED www-redirect to fix redirect loop
         # to disable www redirection remove the section: ${STACK_NAME?Variable not set}-www-redirect,
-        - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.middlewares=${STACK_NAME?Variable not set}-www-redirect,${STACK_NAME?Variable not set}-https-redirect
+        - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
 
   queue:
     image: rabbitmq:3
@@ -130,7 +136,6 @@ services:
     environment:
       - SERVER_NAME=${DOMAIN?Variable not set}
       - SERVER_HOST=https://${DOMAIN?Variable not set}
-      # Allow explicit env var override for tests
       - SMTP_HOST=${SMTP_HOST}
     build:
       context: ./backend
@@ -145,19 +150,21 @@ services:
       - traefik.enable=true
       - traefik.docker.network=${TRAEFIK_PUBLIC_NETWORK?Variable not set}
       - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
-      # Define https-redirect middleware here (backend has correct constraint label)
+      # Define https-redirect middleware
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.scheme=https
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-https-redirect.redirectscheme.permanent=true
       # HTTP router - redirects to HTTPS
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.entrypoints=web
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=${STACK_NAME?Variable not set}-https-redirect
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.priority=200
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.priority=300
       # HTTPS router - main backend access
+      # Use higher priority and more specific rule to ensure it matches before proxy
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.rule=(Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.tls=true
-      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.priority=200
+      - traefik.http.routers.${STACK_NAME?Variable not set}-backend-https.priority=300
+      # Service configuration
       - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
 
   celeryworker:

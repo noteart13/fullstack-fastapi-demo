@@ -18,6 +18,9 @@ services:
       - --providers.docker.exposedbydefault=false
       # Disable Docker Swarm mode for local development
       # - --providers.docker.swarmmode
+      # Enable file provider for dynamic TLS configuration
+      - --providers.file.directory=/dynamic
+      - --providers.file.watch=true
       # Enable the access log, with HTTP requests
       - --accesslog
       # Enable the Traefik log, for configurations and errors
