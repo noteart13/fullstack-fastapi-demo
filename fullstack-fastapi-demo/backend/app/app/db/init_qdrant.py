@@ -1,5 +1,6 @@
 from qdrant_client import models
 from app.db.qdrant import get_qdrant_client
+from app.db.qdrant_users import init_users_collection
 import logging
 
 logger = logging.getLogger(__name__)
@@ -37,3 +38,9 @@ async def init_qdrant() -> None:
         logger.info(f"Dummy data inserted into '{collection_name}'.")
     else:
         logger.info(f"Collection '{collection_name}' already exists.")
+    
+    # Initialize users collection
+    try:
+        await init_users_collection()
+    except Exception as e:
+        logger.error(f"Failed to initialize users collection: {e}")
