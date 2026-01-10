@@ -121,6 +121,15 @@ services:
         - traefik.http.routers.${STACK_NAME?Variable not set}-flower-https.tls=true
         - traefik.http.services.${STACK_NAME?Variable not set}-flower.loadbalancer.server.port=5555
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - default
+
   backend:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
     networks:
@@ -137,6 +146,7 @@ services:
       - SERVER_NAME=${DOMAIN?Variable not set}
       - SERVER_HOST=https://${DOMAIN?Variable not set}
       - SMTP_HOST=${SMTP_HOST}
+      - QDRANT_HOST=qdrant
     build:
       context: ./backend
       dockerfile: backend.dockerfile
@@ -184,6 +194,7 @@ services:
       - SERVER_HOST=https://${DOMAIN?Variable not set}
       # Allow explicit env var override for tests
       - SMTP_HOST=${SMTP_HOST?Variable not set}
+      - QDRANT_HOST=qdrant
     build:
       context: ./backend
       dockerfile: celeryworker.dockerfile
@@ -233,6 +244,7 @@ services:
 
 volumes:
   app-db-data:
+  qdrant_data:
 
 networks:
   traefik-public:

@@ -1,7 +1,7 @@
 import secrets
 from typing import Any, Dict, List, Union, Annotated
 
-from pydantic import AnyHttpUrl, EmailStr, HttpUrl, field_validator, BeforeValidator
+from pydantic import AnyHttpUrl, EmailStr, HttpUrl, field_validator, BeforeValidator, model_validator
 from pydantic_core.core_schema import ValidationInfo
 from pydantic_settings import BaseSettings
 
@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     MONGO_DATABASE: str
     MONGO_DATABASE_URI: str
 
+    QDRANT_HOST: str = "localhost"
+    QDRANT_PORT: int = 6333
+    QDRANT_API_KEY: str | None = None
+    QDRANT_HTTPS: bool = False
+
     SMTP_TLS: bool = True
     SMTP_PORT: int = 587
     SMTP_HOST: str | None = None
@@ -57,11 +62,12 @@ class Settings(BaseSettings):
     EMAILS_FROM_NAME: str | None = None
     EMAILS_TO_EMAIL: EmailStr | None = None
 
-    @field_validator("EMAILS_FROM_NAME")
-    def get_project_name(cls, v: str | None, info: ValidationInfo) -> str:
-        if not v:
-            return info.data["PROJECT_NAME"]
-        return v
+    @model_validator(mode="after")
+    def set_emails_from_name(self) -> "Settings":
+        """Set EMAILS_FROM_NAME to PROJECT_NAME if not provided."""
+        if not self.EMAILS_FROM_NAME and self.PROJECT_NAME:
+            self.EMAILS_FROM_NAME = self.PROJECT_NAME
+        return self
 
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
     EMAIL_TEMPLATES_DIR: str = "/app/app/email-templates/build"

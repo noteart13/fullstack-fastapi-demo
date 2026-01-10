@@ -4,6 +4,7 @@ import logging
 from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixed
 
 from app.db.session import ping
+from app.db.qdrant import ping_qdrant
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ wait_seconds = 1
 async def init() -> None:
     try:
         await ping()
+        await ping_qdrant()
     except Exception as e:
         logger.error(e)
         raise e
