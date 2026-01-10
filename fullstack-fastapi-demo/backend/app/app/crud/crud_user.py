@@ -7,6 +7,7 @@ from app.crud.base import CRUDBase
 from app.models.user import User
 from app.schemas.user import UserCreate, UserInDB, UserUpdate
 from app.schemas.totp import NewTOTP
+from app.db.qdrant_users import save_user_to_qdrant, update_user_in_qdrant, delete_user_from_qdrant
 
 
 # ODM, Schema, Schema
@@ -24,7 +25,18 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             "is_superuser": obj_in.is_superuser,
         }
 
-        return await self.engine.save(User(**user))
+        saved_user = await self.engine.save(User(**user))
+        
+        # Save user to Qdrant asynchronously
+        try:
+            await save_user_to_qdrant(saved_user)
+        except Exception as e:
+            # Log error but don't fail user creation if Qdrant fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to save user to Qdrant: {e}")
+        
+        return saved_user
 
     async def update(self, db: AgnosticDatabase, *, db_obj: User, obj_in: Union[UserUpdate, Dict[str, Any]]) -> User: # noqa
         if isinstance(obj_in, dict):
@@ -37,7 +49,19 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             update_data["hashed_password"] = hashed_password
         if update_data.get("email") and db_obj.email != update_data["email"]:
             update_data["email_validated"] = False
-        return await super().update(db, db_obj=db_obj, obj_in=update_data)
+        
+        updated_user = await super().update(db, db_obj=db_obj, obj_in=update_data)
+        
+        # Update user in Qdrant asynchronously
+        try:
+            await update_user_in_qdrant(updated_user)
+        except Exception as e:
+            # Log error but don't fail user update if Qdrant fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to update user in Qdrant: {e}")
+        
+        return updated_user
 
     async def authenticate(self, db: AgnosticDatabase, *, email: str, password: str) -> User | None: # noqa
         user = await self.get_by_email(db, email=email)

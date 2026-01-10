@@ -13,7 +13,10 @@ except ImportError as e:
     sys.exit(1)
 
 async def main():
-    print("Connecting to Qdrant...")
+    print("=" * 60)
+    print("Qdrant Data Check")
+    print("=" * 60)
+    print("\nConnecting to Qdrant...")
     client = get_qdrant_client()
     collection_name = "example_collection"
     
@@ -21,24 +24,46 @@ async def main():
         # verify connection by listing collections
         collections = await client.get_collections()
         collection_names = [c.name for c in collections.collections]
-        print(f"Available collections: {collection_names}")
+        print(f"✓ Connection successful!")
+        print(f"\nAvailable collections: {collection_names}")
 
         if collection_name in collection_names:
+            # Get collection info
+            collection_info = await client.get_collection(collection_name)
+            print(f"\n{'=' * 60}")
+            print(f"Collection: {collection_name}")
+            print(f"{'=' * 60}")
+            print(f"Points count: {collection_info.points_count}")
+            print(f"Vector size: {collection_info.config.params.vectors.size}")
+            print(f"Distance metric: {collection_info.config.params.vectors.distance}")
+            
+            # Scroll through points
             response = await client.scroll(
                 collection_name=collection_name,
-                limit=10,
+                limit=100,  # Increased limit to show more data
                 with_payload=True,
                 with_vectors=False 
             )
             points = response[0]
-            print(f"Found {len(points)} points in '{collection_name}':")
+            print(f"\nFound {len(points)} point(s) in '{collection_name}':")
+            print("-" * 60)
             for point in points:
-                print(f" - ID: {point.id}, Payload: {point.payload}")
+                print(f"  ID: {point.id}")
+                print(f"  Payload: {point.payload}")
+                print("-" * 60)
         else:
-            print(f"Collection '{collection_name}' not found.")
+            print(f"\n⚠ Collection '{collection_name}' not found.")
+            print("  It will be created automatically on next backend initialization.")
             
     except Exception as e:
-        print(f"Error interacting with Qdrant: {e}")
+        print(f"\n✗ Error interacting with Qdrant: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+    
+    print("\n" + "=" * 60)
+    print("Check complete!")
+    print("=" * 60)
 
 if __name__ == "__main__":
     asyncio.run(main())
