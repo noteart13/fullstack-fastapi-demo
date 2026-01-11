@@ -128,22 +128,25 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
-      - traefik-public
+      - ${TRAEFIK_PUBLIC_NETWORK?Variable not set}
       - default
     labels:
       - traefik.enable=true
       - traefik.docker.network=${TRAEFIK_PUBLIC_NETWORK?Variable not set}
       - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
+      # HTTP router (redirects to HTTPS)
       - traefik.http.routers.${STACK_NAME?Variable not set}-qdrant-http.rule=Host(`${DOMAIN?Variable not set}`) && PathPrefix(`/qdrant`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-qdrant-http.entrypoints=web
       - traefik.http.routers.${STACK_NAME?Variable not set}-qdrant-http.middlewares=${STACK_NAME?Variable not set}-https-redirect,${STACK_NAME?Variable not set}-qdrant-stripprefix
+      # HTTPS router (main access)
       - traefik.http.routers.${STACK_NAME?Variable not set}-qdrant-https.rule=Host(`${DOMAIN?Variable not set}`) && PathPrefix(`/qdrant`)
       - traefik.http.routers.${STACK_NAME?Variable not set}-qdrant-https.entrypoints=websecure
       - traefik.http.routers.${STACK_NAME?Variable not set}-qdrant-https.tls=true
       - traefik.http.routers.${STACK_NAME?Variable not set}-qdrant-https.middlewares=${STACK_NAME?Variable not set}-qdrant-stripprefix
+      # Service configuration
       - traefik.http.services.${STACK_NAME?Variable not set}-qdrant.loadbalancer.server.port=6333
+      # Strip /qdrant prefix before forwarding to Qdrant
       - traefik.http.middlewares.${STACK_NAME?Variable not set}-qdrant-stripprefix.stripprefix.prefixes=/qdrant
-
   backend:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
     networks:
